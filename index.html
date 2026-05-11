@@ -54,7 +54,7 @@
         async function initAI() {
             try {
                 // Wir nutzen Phi-3, da es klein und extrem schnell ist
-                engine = await webllm.CreateEngine("Phi-3-mini-4k-instruct-q4f16_1-MLC", {
+                engine = await webllm.CreateEngine("TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC", {
                     initProgressCallback: (report) => {
                         statusLabel.innerHTML = `<span class="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span> ${Math.round(report.progress * 100)}% geladen`;
                     }
