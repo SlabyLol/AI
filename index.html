@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DarkFox AI | Local Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f1115; color: #e5e7eb; }
+        .chat-container { height: calc(100vh - 160px); }
+        .glass-ui { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
+    </style>
+</head>
+<body class="flex flex-col h-screen font-sans">
+
+    <header class="p-4 border-b border-white/10 flex justify-between items-center bg-[#0f1115]">
+        <h1 class="text-xl font-bold tracking-tight text-blue-400">DarkFox <span class="text-white">AI</span></h1>
+        <div id="status" class="text-xs text-gray-500 flex items-center gap-2">
+            <span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span> Lädt Engine...
+        </div>
+    </header>
+
+    <main id="chat-box" class="chat-container overflow-y-auto p-4 space-y-4 flex flex-col">
+        <div class="glass-ui p-4 rounded-2xl max-w-[85%] self-start">
+            <p class="text-sm">System bereit. Ich lade das Modell direkt in deinen Browser-Speicher. Das kann beim ersten Mal kurz dauern (ca. 2GB Download).</p>
+        </div>
+    </main>
+
+    <footer class="p-4 bg-[#0f1115]">
+        <div class="max-w-4xl mx-auto relative">
+            <input type="text" id="userInput" 
+                class="w-full bg-[#1e293b] border border-white/10 rounded-2xl py-4 px-6 pr-16 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                placeholder="Frag mich was...">
+            <button onclick="handleSend()" 
+                class="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-500 p-2 rounded-xl transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+        </div>
+        <p class="text-[10px] text-center mt-3 text-gray-600">© 2026 DarkFox Co. | Powered by WebGPU</p>
+    </footer>
+
+    <script type="module">
+        import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+        const chatBox = document.getElementById('chat-box');
+        const statusLabel = document.getElementById('status');
+        const inputField = document.getElementById('userInput');
+        let engine;
+
+        // KI Initialisieren
+        async function initAI() {
+            try {
+                // Wir nutzen Phi-3, da es klein und extrem schnell ist
+                engine = await webllm.CreateEngine("Phi-3-mini-4k-instruct-q4f16_1-MLC", {
+                    initProgressCallback: (report) => {
+                        statusLabel.innerHTML = `<span class="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span> ${Math.round(report.progress * 100)}% geladen`;
+                    }
+                });
+                statusLabel.innerHTML = `<span class="w-2 h-2 bg-green-500 rounded-full"></span> Online (Lokal)`;
+            } catch (e) {
+                statusLabel.innerHTML = `<span class="w-2 h-2 bg-red-500 rounded-full"></span> Fehler: WebGPU nicht unterstützt?`;
+                console.error(e);
+            }
+        }
+
+        // Nachricht senden
+        window.handleSend = async () => {
+            const text = inputField.value.trim();
+            if (!text || !engine) return;
+
+            // User Nachricht anzeigen
+            appendMessage(text, 'user');
+            inputField.value = '';
+
+            // KI Antwort vorbereiten
+            const aiMsgDiv = appendMessage("...", 'ai');
+            
+            const chunks = await engine.chat.completions.create({
+                messages: [{ role: "user", content: text }],
+                stream: true
+            });
+
+            let fullReply = "";
+            for await (const chunk of chunks) {
+                const content = chunk.choices[0]?.delta?.content || "";
+                fullReply += content;
+                aiMsgDiv.innerHTML = `<p class="text-sm">${fullReply}</p>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        };
+
+        function appendMessage(text, sender) {
+            const div = document.createElement('div');
+            div.className = sender === 'user' 
+                ? 'glass-ui p-4 rounded-2xl max-w-[85%] self-end bg-blue-700/20' 
+                : 'glass-ui p-4 rounded-2xl max-w-[85%] self-start';
+            div.innerHTML = `<p class="text-sm">${text}</p>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return div;
+        }
+
+        // Enter-Taste Support
+        inputField.addEventListener('keypress', (e) => { if(e.key === 'Enter') handleSend(); });
+
+        initAI();
+    </script>
+</body>
+</html>
